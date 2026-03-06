@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  # Run build + tests for pull requests targeting main.
+  pull_request:
+    branches: [main]
+
+  # Run publish flow only when code is pushed to main.
+  push:
+    branches: [main]
+
+jobs:
+  build_and_test:
+    # Tests run only for PRs.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Get repository files for the workflow runner.
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # Install .NET SDK and enable built-in NuGet package caching.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+          cache: true
+          cache-dependency-path: |
+            TodoApi/TodoApi.csproj
+            TodoApi.UnitTests/TodoApi.UnitTests.csproj
+            TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj
+
+      # Restore all project dependencies once before build/test.
+      - name: Restore dependencies
+        run: |
+          dotnet restore TodoApi/TodoApi.csproj
+          dotnet restore TodoApi.UnitTests/TodoApi.UnitTests.csproj
+          dotnet restore TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj
+
+      # Compile the API in Release mode.
+      - name: Build API
+        run: dotnet build TodoApi/TodoApi.csproj --configuration Release --no-restore
+
+      # Run unit tests only on pull requests.
+      - name: Run unit tests
+        run: dotnet test TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --no-build --verbosity normal
+
+      # Run integration tests only on pull requests.
+      - name: Run integration tests
+        run: dotnet test TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj --configuration Release --no-build --verbosity normal
+
+  publish:
+    # Publishing runs only for pushes to main.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Get repository files for publishing.
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # Install .NET SDK and reuse NuGet cache for faster publish.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+          cache: true
+          cache-dependency-path: |
+            TodoApi/TodoApi.csproj
+            TodoApi.UnitTests/TodoApi.UnitTests.csproj
+            TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj
+
+      # Restore dependencies required by the publish target.
+      - name: Restore dependencies
+        run: dotnet restore TodoApi/TodoApi.csproj
+
+      # Build the API before publishing.
+      - name: Build API
+        run: dotnet build TodoApi/TodoApi.csproj --configuration Release --no-restore
+
+      # Publish compiled output to a folder for artifact upload.
+      - name: Publish API
+        run: dotnet publish TodoApi/TodoApi.csproj --configuration Release --no-build --output ./publish
+
+      # Upload publish output so it can be downloaded from the workflow run.
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: todoapi-publish
+          path: ./publish
+          if-no-files-found: error
