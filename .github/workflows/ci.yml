@@ -42,6 +42,14 @@ jobs:
       - name: Build API
         run: dotnet build TodoApi/TodoApi.csproj --configuration Release --no-restore
 
+      # Build the unit test project so dotnet test --no-build has Release binaries.
+      - name: Build unit test project
+        run: dotnet build TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --no-restore
+
+      # Build the integration test project so dotnet test --no-build has Release binaries.
+      - name: Build integration test project
+        run: dotnet build TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj --configuration Release --no-restore
+
       # Run unit tests only on pull requests.
       - name: Run unit tests
         run: dotnet test TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --no-build --verbosity normal
