@@ -23,3 +23,5 @@ app.UseCors("AngularDev");
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;
