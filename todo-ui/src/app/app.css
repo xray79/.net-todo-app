@@ -13,7 +13,7 @@
 
 .todo-card {
   width: 100%;
-  max-width: 640px;
+  max-width: 680px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
@@ -29,16 +29,56 @@ h1 {
   color: #64748b;
 }
 
-.add-form {
+.auth-panel {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+
+.auth-tabs {
   display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.auth-tabs button {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.auth-tabs button.active {
+  background: #2563eb;
+  color: white;
+}
+
+.auth-form {
+  display: grid;
   gap: 0.5rem;
 }
 
+.auth-form input,
 .add-form input {
-  flex: 1;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 0.6rem 0.75rem;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+
+.state {
+  font-size: 0.9rem;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.add-form {
+  display: flex;
+  gap: 0.5rem;
 }
 
 button {
@@ -48,6 +88,10 @@ button {
   color: white;
   padding: 0.6rem 0.9rem;
   cursor: pointer;
+}
+
+.logout {
+  background: #475569;
 }
 
 .todo-list {
