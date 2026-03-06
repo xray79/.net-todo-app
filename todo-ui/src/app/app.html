@@ -1,0 +1,43 @@
+<main class="todo-shell">
+  <section class="todo-card">
+    <h1>Todo App</h1>
+    <p class="subtitle">ASP.NET API + Angular Frontend</p>
+
+    <form class="add-form" (submit)="$event.preventDefault(); addTodo()">
+      <input
+        type="text"
+        name="newTodo"
+        [(ngModel)]="newTodoTitle"
+        placeholder="Add a task"
+        aria-label="New todo title"
+      />
+      <button type="submit">Add</button>
+    </form>
+
+    @if (loading) {
+      <p>Loading todos...</p>
+    }
+
+    @if (error) {
+      <p class="error">{{ error }}</p>
+    }
+
+    <ul class="todo-list">
+      @for (todo of todos; track todo.id) {
+        <li>
+          <label>
+            <input
+              type="checkbox"
+              [checked]="todo.isDone"
+              (change)="toggleTodo(todo)"
+            />
+            <span [class.done]="todo.isDone">{{ todo.title }}</span>
+          </label>
+          <button type="button" class="delete" (click)="deleteTodo(todo.id)">
+            Delete
+          </button>
+        </li>
+      }
+    </ul>
+  </section>
+</main>
