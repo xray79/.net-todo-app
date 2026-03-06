@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using TodoApi.Auth;
 using TodoApi.Models;
 using Xunit;
 
@@ -17,21 +19,50 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public async Task GetAll_ShouldReturnSeedData()
+    public async Task GetAll_ShouldReturnUnauthorized_WhenNoTokenIsProvided()
     {
-        var todos = await _client.GetFromJsonAsync<List<TodoItem>>("/api/todos");
+        var response = await _client.GetAsync("/api/todos");
 
-        todos.Should().NotBeNull();
-        todos!.Count.Should().BeGreaterThanOrEqualTo(2);
-        todos.Select(todo => todo.Title).Should().Contain("Learn ASP.NET + Angular");
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task Create_ThenGetById_ShouldReturnCreatedTodo()
+    public async Task Register_ThenLogin_ShouldReturnToken()
     {
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest
+        {
+            Email = email,
+            Password = "password123"
+        });
+
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var registered = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        registered.Should().NotBeNull();
+        registered!.Token.Should().NotBeNullOrWhiteSpace();
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest
+        {
+            Email = email,
+            Password = "password123"
+        });
+
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loggedIn = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        loggedIn.Should().NotBeNull();
+        loggedIn!.Token.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task AuthenticatedUser_CanCreateAndReadOwnTodo()
+    {
+        var token = await RegisterAndLoginAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest
         {
-            Title = "Integration test todo"
+            Title = "Authenticated integration todo"
         });
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -43,32 +74,27 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
 
         var fetched = await getResponse.Content.ReadFromJsonAsync<TodoItem>();
         fetched.Should().NotBeNull();
-        fetched!.Title.Should().Be("Integration test todo");
+        fetched!.Title.Should().Be("Authenticated integration todo");
     }
 
-    [Fact]
-    public async Task Update_ShouldReturnNotFound_WhenTodoDoesNotExist()
+    private async Task<string> RegisterAndLoginAsync()
     {
-        var response = await _client.PutAsJsonAsync("/api/todos/99999", new UpdateTodoRequest
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+        const string password = "password123";
+
+        await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest
         {
-            Title = "Unknown",
-            IsDone = true
+            Email = email,
+            Password = password
         });
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task Delete_ShouldReturnNoContent_WhenTodoExists()
-    {
-        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest
         {
-            Title = "Delete me"
+            Email = email,
+            Password = password
         });
-        var created = await createResponse.Content.ReadFromJsonAsync<TodoItem>();
 
-        var deleteResponse = await _client.DeleteAsync($"/api/todos/{created!.Id}");
-
-        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var auth = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        return auth!.Token;
     }
 }

@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using TodoApi.Controllers;
@@ -13,35 +15,37 @@ public class TodosControllerTests
     private readonly Mock<ITodoService> _todoService = new();
 
     [Fact]
-    public void GetById_ShouldReturnNotFound_WhenTodoDoesNotExist()
+    public async Task GetById_ShouldReturnNotFound_WhenTodoDoesNotExist()
     {
-        _todoService.Setup(service => service.GetById(99)).Returns((TodoItem?)null);
-        var controller = new TodosController(_todoService.Object);
+        const string userId = "user-1";
+        _todoService.Setup(service => service.GetByIdAsync(userId, 99)).ReturnsAsync((TodoItem?)null);
+        var controller = CreateController(userId);
 
-        var result = controller.GetById(99);
+        var result = await controller.GetById(99);
 
         result.Result.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]
-    public void Create_ShouldReturnBadRequest_WhenTitleIsBlank()
+    public async Task Create_ShouldReturnBadRequest_WhenTitleIsBlank()
     {
-        var controller = new TodosController(_todoService.Object);
+        var controller = CreateController("user-1");
 
-        var result = controller.Create(new CreateTodoRequest { Title = " " });
+        var result = await controller.Create(new CreateTodoRequest { Title = " " });
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
-        _todoService.Verify(service => service.Add(It.IsAny<string>()), Times.Never);
+        _todoService.Verify(service => service.AddAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
-    public void Create_ShouldReturnCreatedAtAction_WhenRequestIsValid()
+    public async Task Create_ShouldReturnCreatedAtAction_WhenRequestIsValid()
     {
+        const string userId = "user-1";
         var created = new TodoItem(10, "Write tests", false);
-        _todoService.Setup(service => service.Add("Write tests")).Returns(created);
-        var controller = new TodosController(_todoService.Object);
+        _todoService.Setup(service => service.AddAsync(userId, "Write tests")).ReturnsAsync(created);
+        var controller = CreateController(userId);
 
-        var result = controller.Create(new CreateTodoRequest { Title = "Write tests" });
+        var result = await controller.Create(new CreateTodoRequest { Title = "Write tests" });
 
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(TodosController.GetById));
@@ -49,26 +53,44 @@ public class TodosControllerTests
     }
 
     [Fact]
-    public void Update_ShouldReturnNotFound_WhenTodoDoesNotExist()
+    public async Task Update_ShouldReturnNotFound_WhenTodoDoesNotExist()
     {
+        const string userId = "user-1";
         _todoService
-            .Setup(service => service.Update(123, "Missing", true))
-            .Returns((TodoItem?)null);
-        var controller = new TodosController(_todoService.Object);
+            .Setup(service => service.UpdateAsync(userId, 123, "Missing", true))
+            .ReturnsAsync((TodoItem?)null);
+        var controller = CreateController(userId);
 
-        var result = controller.Update(123, new UpdateTodoRequest { Title = "Missing", IsDone = true });
+        var result = await controller.Update(123, new UpdateTodoRequest { Title = "Missing", IsDone = true });
 
         result.Result.Should().BeOfType<NotFoundResult>();
     }
 
     [Fact]
-    public void Delete_ShouldReturnNoContent_WhenTodoExists()
+    public async Task Delete_ShouldReturnNoContent_WhenTodoExists()
     {
-        _todoService.Setup(service => service.Delete(1)).Returns(true);
-        var controller = new TodosController(_todoService.Object);
+        const string userId = "user-1";
+        _todoService.Setup(service => service.DeleteAsync(userId, 1)).ReturnsAsync(true);
+        var controller = CreateController(userId);
 
-        var result = controller.Delete(1);
+        var result = await controller.Delete(1);
 
         result.Should().BeOfType<NoContentResult>();
+    }
+
+    private TodosController CreateController(string userId)
+    {
+        var controller = new TodosController(_todoService.Object);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(
+                    new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "TestAuth"))
+            }
+        };
+
+        return controller;
     }
 }
