@@ -4,9 +4,9 @@ namespace TodoApi.Services;
 
 public interface ITodoService
 {
-    IReadOnlyList<TodoItem> GetAll();
-    TodoItem? GetById(int id);
-    TodoItem Add(string title);
-    TodoItem? Update(int id, string title, bool isDone);
-    bool Delete(int id);
+    Task<IReadOnlyList<TodoItem>> GetAllAsync(string ownerId);
+    Task<TodoItem?> GetByIdAsync(string ownerId, int id);
+    Task<TodoItem> AddAsync(string ownerId, string title);
+    Task<TodoItem?> UpdateAsync(string ownerId, int id, string title, bool isDone);
+    Task<bool> DeleteAsync(string ownerId, int id);
 }
