@@ -42,21 +42,44 @@ jobs:
       - name: Build API
         run: dotnet build TodoApi/TodoApi.csproj --configuration Release --no-restore
 
-      # Build the unit test project so dotnet test --no-build has Release binaries.
+      # Build the unit test project in Release mode before test execution.
       - name: Build unit test project
         run: dotnet build TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --no-restore
 
-      # Build the integration test project so dotnet test --no-build has Release binaries.
+      # Build the integration test project in Release mode before test execution.
       - name: Build integration test project
         run: dotnet build TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj --configuration Release --no-restore
 
       # Run unit tests only on pull requests.
       - name: Run unit tests
-        run: dotnet test TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --no-build --verbosity normal
+        run: dotnet test TodoApi.UnitTests/TodoApi.UnitTests.csproj --configuration Release --verbosity normal
 
       # Run integration tests only on pull requests.
       - name: Run integration tests
-        run: dotnet test TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj --configuration Release --no-build --verbosity normal
+        run: dotnet test TodoApi.IntegrationTests/TodoApi.IntegrationTests.csproj --configuration Release --verbosity normal
+
+      # Install Node.js and cache npm dependencies for the Angular app.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: todo-ui/package-lock.json
+
+      # Install frontend dependencies from lockfile for reproducible builds.
+      - name: Install frontend dependencies
+        working-directory: todo-ui
+        run: npm ci
+
+      # Run Angular unit tests in headless mode for pull requests.
+      - name: Run Angular unit tests
+        working-directory: todo-ui
+        run: npm run test -- --watch=false
+
+      # Build Angular app to validate production bundle generation.
+      - name: Build Angular app
+        working-directory: todo-ui
+        run: npm run build
 
       # Install Node.js and enable npm dependency caching for UI tests.
       - name: Setup Node.js

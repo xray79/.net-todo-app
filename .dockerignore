@@ -1,0 +1,9 @@
+.git
+.github
+**/bin
+**/obj
+**/node_modules
+todo-ui/dist
+todo-ui/.angular
+todo-ui/.cache
+**/.DS_Store

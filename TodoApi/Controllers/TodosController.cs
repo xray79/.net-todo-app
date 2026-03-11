@@ -1,8 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TodoApi.Application.Todos.Commands;
+using TodoApi.Application.Todos.Queries;
 using TodoApi.Models;
-using TodoApi.Services;
 
 namespace TodoApi.Controllers;
 
@@ -11,11 +12,13 @@ namespace TodoApi.Controllers;
 [Route("api/[controller]")]
 public class TodosController : ControllerBase
 {
-    private readonly ITodoService _todoService;
+    private readonly ITodoCommandHandler _commandHandler;
+    private readonly ITodoQueryHandler _queryHandler;
 
-    public TodosController(ITodoService todoService)
+    public TodosController(ITodoCommandHandler commandHandler, ITodoQueryHandler queryHandler)
     {
-        _todoService = todoService;
+        _commandHandler = commandHandler;
+        _queryHandler = queryHandler;
     }
 
     [HttpGet]
@@ -52,9 +55,10 @@ public class TodosController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<TodoItem>> Update(int id, [FromBody] UpdateTodoRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Title))
+        var updated = _commandHandler.Update(new UpdateTodoCommand(id, request.Title, request.IsDone));
+        if (updated is null)
         {
-            return BadRequest(new { error = "Title is required." });
+            return NotFound();
         }
 
         var updated = await _todoService.UpdateAsync(GetUserId(), id, request.Title, request.IsDone);
@@ -63,7 +67,7 @@ public class TodosController : ControllerBase
             return NotFound();
         }
 
-        return Ok(updated);
+        return Ok(completed);
     }
 
     [HttpDelete("{id:int}")]

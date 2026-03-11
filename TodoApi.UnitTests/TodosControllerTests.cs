@@ -3,16 +3,20 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using TodoApi.Application.Todos.Commands;
+using TodoApi.Application.Todos.Queries;
 using TodoApi.Controllers;
 using TodoApi.Models;
-using TodoApi.Services;
 using Xunit;
 
 namespace TodoApi.UnitTests;
 
 public class TodosControllerTests
 {
-    private readonly Mock<ITodoService> _todoService = new();
+    private readonly Mock<ITodoCommandHandler> _commandHandler = new();
+    private readonly Mock<ITodoQueryHandler> _queryHandler = new();
+
+    private TodosController CreateController() => new(_commandHandler.Object, _queryHandler.Object);
 
     [Fact]
     public async Task GetById_ShouldReturnNotFound_WhenTodoDoesNotExist()
@@ -23,7 +27,10 @@ public class TodosControllerTests
 
         var result = await controller.GetById(99);
 
-        result.Result.Should().BeOfType<NotFoundResult>();
+        var result = controller.GetAll();
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(todos);
     }
 
     [Fact]

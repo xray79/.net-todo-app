@@ -7,6 +7,7 @@ using TodoApi.Auth;
 using TodoApi.Data;
 using TodoApi.Entities;
 using TodoApi.Services;
+using TodoApi.Application.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +75,7 @@ app.UseCors("AngularDev");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
 

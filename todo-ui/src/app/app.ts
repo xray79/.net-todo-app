@@ -2,12 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
-interface Todo {
-  id: number;
-  title: string;
-  isDone: boolean;
-}
+import { Todo, TodoApiService } from './services/todo-api.service';
 
 interface AuthResponse {
   token: string;
@@ -21,7 +16,7 @@ interface AuthResponse {
   styleUrl: './app.css'
 })
 export class App implements OnInit {
-  private readonly http = inject(HttpClient);
+  private readonly todoApi = inject(TodoApiService);
 
   todos: Todo[] = [];
   newTodoTitle = '';
@@ -116,6 +111,33 @@ export class App implements OnInit {
       },
       error: () => {
         this.error = 'Failed to add todo.';
+      }
+    });
+  }
+
+  startEdit(todo: Todo): void {
+    this.editingTodoId = todo.id;
+    this.editingTitle = todo.title;
+  }
+
+  cancelEdit(): void {
+    this.editingTodoId = null;
+    this.editingTitle = '';
+  }
+
+  saveEdit(todo: Todo): void {
+    const title = this.editingTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    this.todoApi.updateTodo(todo.id, title, todo.isDone).subscribe({
+      next: (updated) => {
+        this.todos = this.todos.map((item) => item.id === updated.id ? updated : item);
+        this.cancelEdit();
+      },
+      error: () => {
+        this.error = 'Failed to update todo.';
       }
     });
   }

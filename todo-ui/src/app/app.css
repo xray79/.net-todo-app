@@ -116,6 +116,25 @@ button {
   color: #94a3b8;
 }
 
+.row-actions,
+.edit-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.edit {
+  background: #0ea5e9;
+}
+
+.save {
+  background: #16a34a;
+}
+
+.cancel {
+  background: #64748b;
+}
+
 .delete {
   background: #ef4444;
 }

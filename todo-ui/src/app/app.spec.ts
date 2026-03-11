@@ -2,6 +2,29 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { App } from './app';
+import { TodoApiService } from './services/todo-api.service';
+
+class TodoApiServiceStub {
+  getTodos() {
+    return of([]);
+  }
+
+  createTodo(title: string) {
+    return of({ id: 1, title, isDone: false });
+  }
+
+  updateTodo(id: number, title: string, isDone: boolean) {
+    return of({ id, title, isDone });
+  }
+
+  completeTodo(id: number) {
+    return of({ id, title: 'done', isDone: true });
+  }
+
+  deleteTodo() {
+    return of(undefined);
+  }
+}
 
 describe('App', () => {
   beforeEach(async () => {

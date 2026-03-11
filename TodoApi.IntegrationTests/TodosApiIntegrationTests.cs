@@ -68,9 +68,15 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await createResponse.Content.ReadFromJsonAsync<TodoItem>();
         created.Should().NotBeNull();
+        created!.Title.Should().Be(title);
+        created.IsDone.Should().BeFalse();
+    }
 
-        var getResponse = await _client.GetAsync($"/api/todos/{created!.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    [Fact]
+    public async Task GetTodos_ShouldIncludeCreatedTodo()
+    {
+        var title = $"Integration list {Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
 
         var fetched = await getResponse.Content.ReadFromJsonAsync<TodoItem>();
         fetched.Should().NotBeNull();
