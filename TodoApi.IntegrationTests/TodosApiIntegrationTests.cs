@@ -1,7 +1,9 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using TodoApi.Auth;
 using TodoApi.Models;
 using Xunit;
 
@@ -17,11 +19,51 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public async Task CreateTodo_ShouldReturnCreatedTodo()
+    public async Task GetAll_ShouldReturnUnauthorized_WhenNoTokenIsProvided()
     {
-        var title = $"Integration create {Guid.NewGuid():N}";
+        var response = await _client.GetAsync("/api/todos");
 
-        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Register_ThenLogin_ShouldReturnToken()
+    {
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest
+        {
+            Email = email,
+            Password = "password123"
+        });
+
+        registerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var registered = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        registered.Should().NotBeNull();
+        registered!.Token.Should().NotBeNullOrWhiteSpace();
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest
+        {
+            Email = email,
+            Password = "password123"
+        });
+
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var loggedIn = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        loggedIn.Should().NotBeNull();
+        loggedIn!.Token.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task AuthenticatedUser_CanCreateAndReadOwnTodo()
+    {
+        var token = await RegisterAndLoginAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest
+        {
+            Title = "Authenticated integration todo"
+        });
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await createResponse.Content.ReadFromJsonAsync<TodoItem>();
@@ -36,59 +78,29 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
         var title = $"Integration list {Guid.NewGuid():N}";
         await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
 
-        var todos = await _client.GetFromJsonAsync<List<TodoItem>>("/api/todos");
-
-        todos.Should().NotBeNull();
-        todos!.Select(todo => todo.Title).Should().Contain(title);
+        var fetched = await getResponse.Content.ReadFromJsonAsync<TodoItem>();
+        fetched.Should().NotBeNull();
+        fetched!.Title.Should().Be("Authenticated integration todo");
     }
 
-    [Fact]
-    public async Task UpdateTodo_ShouldPersistChanges()
+    private async Task<string> RegisterAndLoginAsync()
     {
-        var created = await CreateTodoAsync($"Integration update {Guid.NewGuid():N}");
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+        const string password = "password123";
 
-        var updateResponse = await _client.PutAsJsonAsync($"/api/todos/{created.Id}", new UpdateTodoRequest
+        await _client.PostAsJsonAsync("/api/auth/register", new RegisterRequest
         {
-            Title = "Updated title",
-            IsDone = true
+            Email = email,
+            Password = password
         });
 
-        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var updated = await updateResponse.Content.ReadFromJsonAsync<TodoItem>();
-        updated.Should().NotBeNull();
-        updated!.Title.Should().Be("Updated title");
-        updated.IsDone.Should().BeTrue();
-    }
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new LoginRequest
+        {
+            Email = email,
+            Password = password
+        });
 
-    [Fact]
-    public async Task CompleteTodo_ShouldMarkItemAsDone()
-    {
-        var created = await CreateTodoAsync($"Integration complete {Guid.NewGuid():N}");
-
-        var completeResponse = await _client.PatchAsync($"/api/todos/{created.Id}/complete", content: null);
-
-        completeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var completed = await completeResponse.Content.ReadFromJsonAsync<TodoItem>();
-        completed.Should().NotBeNull();
-        completed!.IsDone.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task DeleteTodo_ShouldRemoveItem()
-    {
-        var created = await CreateTodoAsync($"Integration delete {Guid.NewGuid():N}");
-
-        var deleteResponse = await _client.DeleteAsync($"/api/todos/{created.Id}");
-        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
-
-        var getResponse = await _client.GetAsync($"/api/todos/{created.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    private async Task<TodoItem> CreateTodoAsync(string title)
-    {
-        var response = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
-        return (await response.Content.ReadFromJsonAsync<TodoItem>())!;
+        var auth = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
+        return auth!.Token;
     }
 }

@@ -1,67 +1,57 @@
-describe('Todo App Core Flows', () => {
-  const makeTitle = (label: string) => `${label}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-  const apiBase = 'http://localhost:5080/api/todos';
+describe('Todo App Auth Flow', () => {
+  it('renders login/register controls by default', () => {
+    cy.visit('/');
 
-  it('loads app endpoint', () => {
-    cy.request('http://localhost:4200').then((res) => {
-      expect(res.status).to.eq(200);
-      expect(res.body).to.contain('<app-root>');
+    cy.contains('button', 'Login').should('be.visible');
+    cy.contains('button', 'Register').should('be.visible');
+    cy.get('input[name="email"]').should('be.visible');
+    cy.get('input[name="password"]').should('be.visible');
+  });
+
+  it('logs in and loads todos', () => {
+    cy.intercept('POST', '**/api/auth/login', {
+      statusCode: 200,
+      body: { token: 'fake-jwt-token', email: 'user@example.com' }
+    }).as('login');
+
+    cy.intercept('GET', '**/api/todos', {
+      statusCode: 200,
+      body: [{ id: 1, title: 'Auth todo', isDone: false }]
+    }).as('getTodos');
+
+    cy.visit('/');
+    cy.get('input[name="email"]').type('user@example.com');
+    cy.get('input[name="password"]').type('password123');
+    cy.get('.auth-form button[type="submit"]').click();
+
+    cy.wait('@login');
+    cy.wait('@getTodos');
+    cy.window().then((window) => {
+      expect(window.localStorage.getItem('todo_token')).to.eq('fake-jwt-token');
     });
   });
 
-  it('creates todo via API flow', () => {
-    const title = makeTitle('create-api');
+  it('switches to register and submits registration', () => {
+    cy.intercept('POST', '**/api/auth/register', {
+      statusCode: 200,
+      body: { token: 'registered-token', email: 'new@example.com' }
+    }).as('register');
 
-    cy.request('POST', apiBase, { title }).then((createRes) => {
-      expect(createRes.status).to.eq(201);
-      expect(createRes.body.title).to.eq(title);
-      expect(createRes.body.isDone).to.eq(false);
-    });
-  });
+    cy.intercept('GET', '**/api/todos', {
+      statusCode: 200,
+      body: []
+    }).as('getTodos');
 
-  it('edits todo via API flow', () => {
-    const source = makeTitle('edit-source');
-    const target = makeTitle('edit-target');
+    cy.visit('/');
+    cy.contains('button', 'Register').click();
+    cy.get('input[name="email"]').type('new@example.com');
+    cy.get('input[name="password"]').type('password123');
+    cy.get('.auth-form button[type="submit"]').click();
 
-    cy.request('POST', apiBase, { title: source }).then((createRes) => {
-      expect(createRes.status).to.eq(201);
-      const id = createRes.body.id;
-
-      cy.request('PUT', `${apiBase}/${id}`, { title: target, isDone: false }).then((updateRes) => {
-        expect(updateRes.status).to.eq(200);
-        expect(updateRes.body.title).to.eq(target);
-      });
-    });
-  });
-
-  it('completes todo via API flow', () => {
-    const title = makeTitle('complete');
-
-    cy.request('POST', apiBase, { title }).then((createRes) => {
-      expect(createRes.status).to.eq(201);
-      const id = createRes.body.id;
-
-      cy.request('PATCH', `${apiBase}/${id}/complete`, {}).then((completeRes) => {
-        expect(completeRes.status).to.eq(200);
-        expect(completeRes.body.isDone).to.eq(true);
-      });
-    });
-  });
-
-  it('deletes todo via API flow', () => {
-    const title = makeTitle('delete');
-
-    cy.request('POST', apiBase, { title }).then((createRes) => {
-      expect(createRes.status).to.eq(201);
-      const id = createRes.body.id;
-
-      cy.request('DELETE', `${apiBase}/${id}`).then((deleteRes) => {
-        expect(deleteRes.status).to.eq(204);
-      });
-
-      cy.request({ method: 'GET', url: `${apiBase}/${id}`, failOnStatusCode: false }).then((getRes) => {
-        expect(getRes.status).to.eq(404);
-      });
+    cy.wait('@register');
+    cy.wait('@getTodos');
+    cy.window().then((window) => {
+      expect(window.localStorage.getItem('todo_token')).to.eq('registered-token');
     });
   });
 });

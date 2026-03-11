@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { App } from './app';
 import { TodoApiService } from './services/todo-api.service';
 
@@ -27,9 +28,11 @@ class TodoApiServiceStub {
 
 describe('App', () => {
   beforeEach(async () => {
+    localStorage.removeItem('todo_token');
+
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [{ provide: TodoApiService, useClass: TodoApiServiceStub }]
+      providers: [provideHttpClient(), provideHttpClientTesting()]
     }).compileComponents();
   });
 
@@ -39,20 +42,28 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', async () => {
+  it('should render auth controls when unauthenticated', () => {
     const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
+    fixture.detectChanges();
+
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('h1')?.textContent).toContain('Todo App');
+    expect(compiled.textContent).toContain('Login');
+    expect(compiled.textContent).toContain('Register');
   });
 
-  it('should switch into editing mode', () => {
+  it('should switch to register mode when register tab is clicked', () => {
     const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
+    fixture.detectChanges();
 
-    app.startEdit({ id: 5, title: 'Edit me', isDone: false });
+    const buttons = fixture.nativeElement.querySelectorAll('.auth-tabs button') as NodeListOf<HTMLButtonElement>;
+    const registerButton = Array.from(buttons)
+      .find((button) => button.textContent?.trim() === 'Register') as HTMLButtonElement;
 
-    expect(app.editingTodoId).toBe(5);
-    expect(app.editingTitle).toBe('Edit me');
+    registerButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.authMode).toBe('register');
+    expect(fixture.nativeElement.textContent).toContain('Create account');
   });
 });

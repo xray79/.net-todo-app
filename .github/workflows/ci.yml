@@ -81,6 +81,29 @@ jobs:
         working-directory: todo-ui
         run: npm run build
 
+      # Install Node.js and enable npm dependency caching for UI tests.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: todo-ui/package-lock.json
+
+      # Install frontend dependencies using the lockfile.
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: todo-ui
+
+      # Run Angular unit tests in headless mode on PRs.
+      - name: Run Angular unit tests
+        run: npm run test -- --watch=false
+        working-directory: todo-ui
+
+      # Run Cypress e2e coverage for auth + UI behavior on PRs.
+      - name: Run Cypress e2e tests
+        run: npm run e2e
+        working-directory: todo-ui
+
   publish:
     # Publishing runs only for pushes to main.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

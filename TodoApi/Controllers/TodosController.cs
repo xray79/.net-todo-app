@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TodoApi.Application.Todos.Commands;
 using TodoApi.Application.Todos.Queries;
@@ -6,6 +8,7 @@ using TodoApi.Models;
 namespace TodoApi.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class TodosController : ControllerBase
 {
@@ -19,15 +22,16 @@ public class TodosController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<IReadOnlyList<TodoItem>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<TodoItem>>> GetAll()
     {
-        return Ok(_queryHandler.GetAll(new GetTodosQuery()));
+        var todos = await _todoService.GetAllAsync(GetUserId());
+        return Ok(todos);
     }
 
     [HttpGet("{id:int}")]
-    public ActionResult<TodoItem> GetById(int id)
+    public async Task<ActionResult<TodoItem>> GetById(int id)
     {
-        var todo = _queryHandler.GetById(new GetTodoByIdQuery(id));
+        var todo = await _todoService.GetByIdAsync(GetUserId(), id);
         if (todo is null)
         {
             return NotFound();
@@ -37,14 +41,19 @@ public class TodosController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<TodoItem> Create([FromBody] CreateTodoRequest request)
+    public async Task<ActionResult<TodoItem>> Create([FromBody] CreateTodoRequest request)
     {
-        var created = _commandHandler.Create(new CreateTodoCommand(request.Title));
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { error = "Title is required." });
+        }
+
+        var created = await _todoService.AddAsync(GetUserId(), request.Title);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     [HttpPut("{id:int}")]
-    public ActionResult<TodoItem> Update(int id, [FromBody] UpdateTodoRequest request)
+    public async Task<ActionResult<TodoItem>> Update(int id, [FromBody] UpdateTodoRequest request)
     {
         var updated = _commandHandler.Update(new UpdateTodoCommand(id, request.Title, request.IsDone));
         if (updated is null)
@@ -52,14 +61,8 @@ public class TodosController : ControllerBase
             return NotFound();
         }
 
-        return Ok(updated);
-    }
-
-    [HttpPatch("{id:int}/complete")]
-    public ActionResult<TodoItem> Complete(int id)
-    {
-        var completed = _commandHandler.Complete(new CompleteTodoCommand(id));
-        if (completed is null)
+        var updated = await _todoService.UpdateAsync(GetUserId(), id, request.Title, request.IsDone);
+        if (updated is null)
         {
             return NotFound();
         }
@@ -68,14 +71,25 @@ public class TodosController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var deleted = _commandHandler.Delete(new DeleteTodoCommand(id));
+        var deleted = await _todoService.DeleteAsync(GetUserId(), id);
         if (!deleted)
         {
             return NotFound();
         }
 
         return NoContent();
+    }
+
+    private string GetUserId()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+        {
+            throw new UnauthorizedAccessException("User identifier claim is missing.");
+        }
+
+        return userId;
     }
 }

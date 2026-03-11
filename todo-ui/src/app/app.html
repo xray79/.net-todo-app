@@ -1,60 +1,67 @@
 <main class="todo-shell">
   <section class="todo-card">
     <h1>Todo App</h1>
-    <p class="subtitle">ASP.NET API + Angular Frontend</p>
+    <p class="subtitle">ASP.NET Identity + Angular Frontend</p>
 
-    <form class="add-form" (submit)="$event.preventDefault(); addTodo()" data-cy="add-form">
-      <input
-        type="text"
-        name="newTodo"
-        [(ngModel)]="newTodoTitle"
-        placeholder="Add a task"
-        aria-label="New todo title"
-        data-cy="new-todo-input"
-      />
-      <button type="submit" data-cy="add-todo-button">Add</button>
-    </form>
+    @if (!isAuthenticated) {
+      <section class="auth-panel">
+        <div class="auth-tabs">
+          <button type="button" [class.active]="authMode === 'login'" (click)="switchMode('login')">Login</button>
+          <button type="button" [class.active]="authMode === 'register'" (click)="switchMode('register')">Register</button>
+        </div>
 
-    @if (loading) {
-      <p>Loading todos...</p>
-    }
+        <form class="auth-form" (submit)="$event.preventDefault(); authMode === 'login' ? login() : register()">
+          <input type="email" name="email" [(ngModel)]="email" placeholder="Email" required />
+          <input type="password" name="password" [(ngModel)]="password" placeholder="Password" required />
+          <button type="submit">{{ authMode === 'login' ? 'Login' : 'Create account' }}</button>
+        </form>
 
-    @if (error) {
-      <p class="error">{{ error }}</p>
-    }
+        @if (authError) {
+          <p class="error">{{ authError }}</p>
+        }
+      </section>
+    } @else {
+      <div class="toolbar">
+        <span class="state">Authenticated</span>
+        <button type="button" class="logout" (click)="logout()">Logout</button>
+      </div>
 
-    <ul class="todo-list" data-cy="todo-list">
-      @for (todo of todos; track todo.id) {
-        <li [attr.data-cy]="'todo-item-' + todo.id">
-          @if (editingTodoId === todo.id) {
-            <form class="edit-form" (submit)="$event.preventDefault(); saveEdit(todo)" [attr.data-cy]="'edit-form-' + todo.id">
-              <input
-                type="text"
-                name="editingTitle"
-                [(ngModel)]="editingTitle"
-                aria-label="Edit todo title"
-                [attr.data-cy]="'edit-input-' + todo.id"
-              />
-              <button type="submit" class="save" [attr.data-cy]="'save-button-' + todo.id">Save</button>
-              <button type="button" class="cancel" (click)="cancelEdit()" [attr.data-cy]="'cancel-button-' + todo.id">Cancel</button>
-            </form>
-          } @else {
+      <form class="add-form" (submit)="$event.preventDefault(); addTodo()">
+        <input
+          type="text"
+          name="newTodo"
+          [(ngModel)]="newTodoTitle"
+          placeholder="Add a task"
+          aria-label="New todo title"
+        />
+        <button type="submit">Add</button>
+      </form>
+
+      @if (loading) {
+        <p>Loading todos...</p>
+      }
+
+      @if (error) {
+        <p class="error">{{ error }}</p>
+      }
+
+      <ul class="todo-list">
+        @for (todo of todos; track todo.id) {
+          <li>
             <label>
               <input
                 type="checkbox"
                 [checked]="todo.isDone"
                 (change)="toggleTodo(todo)"
-                [attr.data-cy]="'toggle-todo-' + todo.id"
               />
-              <span [class.done]="todo.isDone" [attr.data-cy]="'todo-title-' + todo.id">{{ todo.title }}</span>
+              <span [class.done]="todo.isDone">{{ todo.title }}</span>
             </label>
-            <div class="row-actions">
-              <button type="button" class="edit" (click)="startEdit(todo)" [attr.data-cy]="'edit-button-' + todo.id">Edit</button>
-              <button type="button" class="delete" (click)="deleteTodo(todo.id)" [attr.data-cy]="'delete-button-' + todo.id">Delete</button>
-            </div>
-          }
-        </li>
-      }
-    </ul>
+            <button type="button" class="delete" (click)="deleteTodo(todo.id)">
+              Delete
+            </button>
+          </li>
+        }
+      </ul>
+    }
   </section>
 </main>
