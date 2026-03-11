@@ -13,7 +13,7 @@
 
 .todo-card {
   width: 100%;
-  max-width: 640px;
+  max-width: 700px;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
@@ -34,7 +34,8 @@ h1 {
   gap: 0.5rem;
 }
 
-.add-form input {
+.add-form input,
+.edit-form input {
   flex: 1;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
@@ -70,6 +71,25 @@ button {
 .done {
   text-decoration: line-through;
   color: #94a3b8;
+}
+
+.row-actions,
+.edit-form {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.edit {
+  background: #0ea5e9;
+}
+
+.save {
+  background: #16a34a;
+}
+
+.cancel {
+  background: #64748b;
 }
 
 .delete {

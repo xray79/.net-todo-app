@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using TodoApi.Application.Todos.Commands;
+using TodoApi.Application.Todos.Queries;
 using TodoApi.Models;
-using TodoApi.Services;
 
 namespace TodoApi.Controllers;
 
@@ -8,23 +9,25 @@ namespace TodoApi.Controllers;
 [Route("api/[controller]")]
 public class TodosController : ControllerBase
 {
-    private readonly ITodoService _todoService;
+    private readonly ITodoCommandHandler _commandHandler;
+    private readonly ITodoQueryHandler _queryHandler;
 
-    public TodosController(ITodoService todoService)
+    public TodosController(ITodoCommandHandler commandHandler, ITodoQueryHandler queryHandler)
     {
-        _todoService = todoService;
+        _commandHandler = commandHandler;
+        _queryHandler = queryHandler;
     }
 
     [HttpGet]
     public ActionResult<IReadOnlyList<TodoItem>> GetAll()
     {
-        return Ok(_todoService.GetAll());
+        return Ok(_queryHandler.GetAll(new GetTodosQuery()));
     }
 
     [HttpGet("{id:int}")]
     public ActionResult<TodoItem> GetById(int id)
     {
-        var todo = _todoService.GetById(id);
+        var todo = _queryHandler.GetById(new GetTodoByIdQuery(id));
         if (todo is null)
         {
             return NotFound();
@@ -36,24 +39,14 @@ public class TodosController : ControllerBase
     [HttpPost]
     public ActionResult<TodoItem> Create([FromBody] CreateTodoRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Title))
-        {
-            return BadRequest(new { error = "Title is required." });
-        }
-
-        var created = _todoService.Add(request.Title);
+        var created = _commandHandler.Create(new CreateTodoCommand(request.Title));
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     [HttpPut("{id:int}")]
     public ActionResult<TodoItem> Update(int id, [FromBody] UpdateTodoRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Title))
-        {
-            return BadRequest(new { error = "Title is required." });
-        }
-
-        var updated = _todoService.Update(id, request.Title, request.IsDone);
+        var updated = _commandHandler.Update(new UpdateTodoCommand(id, request.Title, request.IsDone));
         if (updated is null)
         {
             return NotFound();
@@ -62,10 +55,22 @@ public class TodosController : ControllerBase
         return Ok(updated);
     }
 
+    [HttpPatch("{id:int}/complete")]
+    public ActionResult<TodoItem> Complete(int id)
+    {
+        var completed = _commandHandler.Complete(new CompleteTodoCommand(id));
+        if (completed is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(completed);
+    }
+
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        var deleted = _todoService.Delete(id);
+        var deleted = _commandHandler.Delete(new DeleteTodoCommand(id));
         if (!deleted)
         {
             return NotFound();

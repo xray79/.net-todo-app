@@ -3,15 +3,16 @@
     <h1>Todo App</h1>
     <p class="subtitle">ASP.NET API + Angular Frontend</p>
 
-    <form class="add-form" (submit)="$event.preventDefault(); addTodo()">
+    <form class="add-form" (submit)="$event.preventDefault(); addTodo()" data-cy="add-form">
       <input
         type="text"
         name="newTodo"
         [(ngModel)]="newTodoTitle"
         placeholder="Add a task"
         aria-label="New todo title"
+        data-cy="new-todo-input"
       />
-      <button type="submit">Add</button>
+      <button type="submit" data-cy="add-todo-button">Add</button>
     </form>
 
     @if (loading) {
@@ -22,20 +23,36 @@
       <p class="error">{{ error }}</p>
     }
 
-    <ul class="todo-list">
+    <ul class="todo-list" data-cy="todo-list">
       @for (todo of todos; track todo.id) {
-        <li>
-          <label>
-            <input
-              type="checkbox"
-              [checked]="todo.isDone"
-              (change)="toggleTodo(todo)"
-            />
-            <span [class.done]="todo.isDone">{{ todo.title }}</span>
-          </label>
-          <button type="button" class="delete" (click)="deleteTodo(todo.id)">
-            Delete
-          </button>
+        <li [attr.data-cy]="'todo-item-' + todo.id">
+          @if (editingTodoId === todo.id) {
+            <form class="edit-form" (submit)="$event.preventDefault(); saveEdit(todo)" [attr.data-cy]="'edit-form-' + todo.id">
+              <input
+                type="text"
+                name="editingTitle"
+                [(ngModel)]="editingTitle"
+                aria-label="Edit todo title"
+                [attr.data-cy]="'edit-input-' + todo.id"
+              />
+              <button type="submit" class="save" [attr.data-cy]="'save-button-' + todo.id">Save</button>
+              <button type="button" class="cancel" (click)="cancelEdit()" [attr.data-cy]="'cancel-button-' + todo.id">Cancel</button>
+            </form>
+          } @else {
+            <label>
+              <input
+                type="checkbox"
+                [checked]="todo.isDone"
+                (change)="toggleTodo(todo)"
+                [attr.data-cy]="'toggle-todo-' + todo.id"
+              />
+              <span [class.done]="todo.isDone" [attr.data-cy]="'todo-title-' + todo.id">{{ todo.title }}</span>
+            </label>
+            <div class="row-actions">
+              <button type="button" class="edit" (click)="startEdit(todo)" [attr.data-cy]="'edit-button-' + todo.id">Edit</button>
+              <button type="button" class="delete" (click)="deleteTodo(todo.id)" [attr.data-cy]="'delete-button-' + todo.id">Delete</button>
+            </div>
+          }
         </li>
       }
     </ul>

@@ -1,13 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
 import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
-interface Todo {
-  id: number;
-  title: string;
-  isDone: boolean;
-}
+import { Todo, TodoApiService } from './services/todo-api.service';
 
 @Component({
   selector: 'app-root',
@@ -16,12 +10,15 @@ interface Todo {
   styleUrl: './app.css'
 })
 export class App implements OnInit {
-  private readonly http = inject(HttpClient);
+  private readonly todoApi = inject(TodoApiService);
 
   todos: Todo[] = [];
   newTodoTitle = '';
   loading = false;
   error = '';
+
+  editingTodoId: number | null = null;
+  editingTitle = '';
 
   ngOnInit(): void {
     this.loadTodos();
@@ -29,7 +26,7 @@ export class App implements OnInit {
 
   loadTodos(): void {
     this.loading = true;
-    this.http.get<Todo[]>('http://localhost:5080/api/todos').subscribe({
+    this.todoApi.getTodos().subscribe({
       next: (todos) => {
         this.todos = todos;
         this.loading = false;
@@ -47,7 +44,7 @@ export class App implements OnInit {
       return;
     }
 
-    this.http.post<Todo>('http://localhost:5080/api/todos', { title }).subscribe({
+    this.todoApi.createTodo(title).subscribe({
       next: (todo) => {
         this.todos = [...this.todos, todo];
         this.newTodoTitle = '';
@@ -58,11 +55,48 @@ export class App implements OnInit {
     });
   }
 
+  startEdit(todo: Todo): void {
+    this.editingTodoId = todo.id;
+    this.editingTitle = todo.title;
+  }
+
+  cancelEdit(): void {
+    this.editingTodoId = null;
+    this.editingTitle = '';
+  }
+
+  saveEdit(todo: Todo): void {
+    const title = this.editingTitle.trim();
+    if (!title) {
+      return;
+    }
+
+    this.todoApi.updateTodo(todo.id, title, todo.isDone).subscribe({
+      next: (updated) => {
+        this.todos = this.todos.map((item) => item.id === updated.id ? updated : item);
+        this.cancelEdit();
+      },
+      error: () => {
+        this.error = 'Failed to update todo.';
+      }
+    });
+  }
+
   toggleTodo(todo: Todo): void {
-    this.http.put<Todo>(`http://localhost:5080/api/todos/${todo.id}`, {
-      title: todo.title,
-      isDone: !todo.isDone
-    }).subscribe({
+    if (!todo.isDone) {
+      this.todoApi.completeTodo(todo.id).subscribe({
+        next: (updated) => {
+          this.todos = this.todos.map((item) => item.id === updated.id ? updated : item);
+        },
+        error: () => {
+          this.error = 'Failed to complete todo.';
+        }
+      });
+
+      return;
+    }
+
+    this.todoApi.updateTodo(todo.id, todo.title, false).subscribe({
       next: (updated) => {
         this.todos = this.todos.map((item) => item.id === updated.id ? updated : item);
       },
@@ -73,7 +107,7 @@ export class App implements OnInit {
   }
 
   deleteTodo(id: number): void {
-    this.http.delete(`http://localhost:5080/api/todos/${id}`).subscribe({
+    this.todoApi.deleteTodo(id).subscribe({
       next: () => {
         this.todos = this.todos.filter((todo) => todo.id !== id);
       },

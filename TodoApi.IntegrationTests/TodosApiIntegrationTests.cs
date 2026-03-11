@@ -17,58 +17,78 @@ public class TodosApiIntegrationTests : IClassFixture<WebApplicationFactory<Prog
     }
 
     [Fact]
-    public async Task GetAll_ShouldReturnSeedData()
+    public async Task CreateTodo_ShouldReturnCreatedTodo()
     {
-        var todos = await _client.GetFromJsonAsync<List<TodoItem>>("/api/todos");
+        var title = $"Integration create {Guid.NewGuid():N}";
 
-        todos.Should().NotBeNull();
-        todos!.Count.Should().BeGreaterThanOrEqualTo(2);
-        todos.Select(todo => todo.Title).Should().Contain("Learn ASP.NET + Angular");
-    }
-
-    [Fact]
-    public async Task Create_ThenGetById_ShouldReturnCreatedTodo()
-    {
-        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest
-        {
-            Title = "Integration test todo"
-        });
+        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var created = await createResponse.Content.ReadFromJsonAsync<TodoItem>();
         created.Should().NotBeNull();
-
-        var getResponse = await _client.GetAsync($"/api/todos/{created!.Id}");
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var fetched = await getResponse.Content.ReadFromJsonAsync<TodoItem>();
-        fetched.Should().NotBeNull();
-        fetched!.Title.Should().Be("Integration test todo");
+        created!.Title.Should().Be(title);
+        created.IsDone.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Update_ShouldReturnNotFound_WhenTodoDoesNotExist()
+    public async Task GetTodos_ShouldIncludeCreatedTodo()
     {
-        var response = await _client.PutAsJsonAsync("/api/todos/99999", new UpdateTodoRequest
+        var title = $"Integration list {Guid.NewGuid():N}";
+        await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
+
+        var todos = await _client.GetFromJsonAsync<List<TodoItem>>("/api/todos");
+
+        todos.Should().NotBeNull();
+        todos!.Select(todo => todo.Title).Should().Contain(title);
+    }
+
+    [Fact]
+    public async Task UpdateTodo_ShouldPersistChanges()
+    {
+        var created = await CreateTodoAsync($"Integration update {Guid.NewGuid():N}");
+
+        var updateResponse = await _client.PutAsJsonAsync($"/api/todos/{created.Id}", new UpdateTodoRequest
         {
-            Title = "Unknown",
+            Title = "Updated title",
             IsDone = true
         });
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await updateResponse.Content.ReadFromJsonAsync<TodoItem>();
+        updated.Should().NotBeNull();
+        updated!.Title.Should().Be("Updated title");
+        updated.IsDone.Should().BeTrue();
     }
 
     [Fact]
-    public async Task Delete_ShouldReturnNoContent_WhenTodoExists()
+    public async Task CompleteTodo_ShouldMarkItemAsDone()
     {
-        var createResponse = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest
-        {
-            Title = "Delete me"
-        });
-        var created = await createResponse.Content.ReadFromJsonAsync<TodoItem>();
+        var created = await CreateTodoAsync($"Integration complete {Guid.NewGuid():N}");
 
-        var deleteResponse = await _client.DeleteAsync($"/api/todos/{created!.Id}");
+        var completeResponse = await _client.PatchAsync($"/api/todos/{created.Id}/complete", content: null);
 
+        completeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var completed = await completeResponse.Content.ReadFromJsonAsync<TodoItem>();
+        completed.Should().NotBeNull();
+        completed!.IsDone.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteTodo_ShouldRemoveItem()
+    {
+        var created = await CreateTodoAsync($"Integration delete {Guid.NewGuid():N}");
+
+        var deleteResponse = await _client.DeleteAsync($"/api/todos/{created.Id}");
         deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var getResponse = await _client.GetAsync($"/api/todos/{created.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private async Task<TodoItem> CreateTodoAsync(string title)
+    {
+        var response = await _client.PostAsJsonAsync("/api/todos", new CreateTodoRequest { Title = title });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<TodoItem>())!;
     }
 }
